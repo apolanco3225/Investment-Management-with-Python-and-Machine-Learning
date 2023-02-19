@@ -1,4 +1,5 @@
 import pandas as pd
+import scipy
 
 def calculate_drawdown(input_series: pd.Series):
     """
@@ -40,3 +41,57 @@ def get_ffme_returns():
     rets.index = pd.to_datetime(rets.index, format="%Y%m").to_period("M")
     return rets
     
+    
+def get_hfi_returns():
+    """
+    Load and format the EDHEC Hedge Fund Index Return
+    """
+    hfi = pd.read_csv(
+        "data/edhec-hedgefundindices.csv",
+        header = 0, 
+        index_col = 0, 
+        parse_dates = True,
+        infer_datetime_format=True
+    )
+    
+    hfi = hfi / 100
+    hfi.index = hfi.index.to_period("M")
+    return hfi
+    
+    
+def calculate_skewness(input_r):
+    """
+    Alternative to scipy.stats.skew()
+    Compute the skeweness of the supplied Series or DataFrame
+    Returns a float or a Series.
+    """
+    demeaned_r = input_r - input_r.mean()
+    # use the population standard deviation, so set dof=0
+    sigma_r = input_r.std(ddof=0)
+    exp = (demeaned_r ** 3).mean()
+    return exp / sigma_r ** 3
+    
+    
+def calculate_kurtosis(input_r):
+    """
+    Alternative to scipy.stats.kurtosis()
+    Compute the kurtosis of the supplied Series or DataFrame
+    Returns a float or a Series.
+    """
+    demeaned_r = input_r - input_r.mean()
+    # use the population standard deviation, so set dof=0
+    sigma_r = input_r.std(ddof=0)
+    exp = (demeaned_r ** 4).mean()
+    return exp / sigma_r ** 4
+    
+    
+def is_normal(input_r, level=0.01):
+    """
+    Applies the Jarque-Bera test to determine if a series is 
+    normal or not. 
+    Test is applied at the 1% level by default.
+    Rerturns true if they hypothesis of normality is accepted, 
+    false otherwise.
+    """
+    statistic, p_value = scipy.stats.jarque_bera(input_r)
+    return p_value > level
