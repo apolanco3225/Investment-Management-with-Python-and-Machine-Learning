@@ -1,5 +1,7 @@
 import pandas as pd
+import numpy as np
 import scipy
+from scipy.stats import norm
 
 def calculate_drawdown(input_series: pd.Series):
     """
@@ -95,3 +97,64 @@ def is_normal(input_r, level=0.01):
     """
     statistic, p_value = scipy.stats.jarque_bera(input_r)
     return p_value > level
+
+
+def calculate_semideviation(input_r):
+    """
+    Returns semideviation aka negative semideviation of r
+    r must me a series or a DataFrame
+    """
+    is_negative = input_r < 0
+    return input_r[is_negative].std(ddof=0)
+
+def var_historic(input_r, level=5):
+    """
+    Returns the historic VaR Value at Risk at a specified
+    level i.e. returns the number such that "level" percent 
+    of the returns fall below that number, and the (100 level)
+    percent are above
+    """
+    if isinstance(input_r, pd.DataFrame):
+        return input_r.aggregate(var_historic, level=level)
+    elif isinstance(input_r, pd.Series):
+        return -np.percentile(input_r, level)
+    else:
+        raise TypeError("Expected r input to be a pandas Series or Dataframe")
+       
+    
+def var_gaussian(input_r, level=5, modified=False):
+    """
+    Returns the parametric Gaussian VaR of a Series or a Dataframe
+    """
+    # compute the z score assuming it was gaussian
+    z = norm.ppf(level / 100)
+    
+    if modified:
+        # modify the z score based on observed skewness and kurtosis
+        s = calculate_skewness(input_r)
+        k = calculate_kurtosis(input_r)
+        z = (
+            z +
+            (z ** 2 - 1) * s / 6 +
+            (z ** 3 - 3 * z) * (k - 3) / 24 -
+            (2 * z ** 3 - 5 * z) * (s ** 2) / 36
+        )
+
+    return -(input_r.mean() + z * input_r.std(ddof=0))
+
+
+def cvar_historic(input_r, level=5):
+    """
+    Returns the historic VaR Value at Risk at a specified
+    level i.e. returns the number such that "level" percent 
+    of the returns fall below that number, and the (100 level)
+    percent are above
+    """
+    if isinstance(input_r, pd.Series):
+        is_beyond = input_r <= - var_historic(input_r, level=level)
+        return - input_r[is_beyond].mean()
+    elif isinstance(input_r, pd.DataFrame):
+        return input_r.aggregate(cvar_historic, level=level)
+    else:
+        raise TypeError("Expected r input to be a pandas Series or Dataframe")
+       
