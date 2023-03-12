@@ -8,7 +8,7 @@ def get_ffme_returns():
     """
     # load data
     returns = pd.read_csv(
-        "data/Portfolios_Formed_on_ME_monthly_EW.csv",
+        "../data/Portfolios_Formed_on_ME_monthly_EW.csv",
         header = 0, 
         index_col = 0, 
         na_values = -99.99, 
