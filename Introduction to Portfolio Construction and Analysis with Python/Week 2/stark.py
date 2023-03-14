@@ -232,3 +232,57 @@ def calculate_sharpe_ratio(
     ann_vol = calculate_annualize_vol(input_returns, periods_per_year)
     return ann_ex_ret / ann_vol
     
+    
+def calculate_portfolio_return(weights, returns_data):
+    """
+    Weights -> Returns
+    """
+    return weights.T @ returns_data
+
+
+def calculate_portfolio_vol(weights, cov_mat):
+    """
+    Weights -> Volatility
+    """
+    return (weights.T @ cov_mat @ weights) ** 0.5
+
+
+def plot_ef2(n_points, returns_data, cov_matrix):
+    """
+    Plots the 2-assets efficient frontier
+    """
+    if returns_data.shape[0] != 2 or returns_data.shape[0] != 2:
+        raise ValueError("plot_ef2 can only plot 2 asset frontiers")
+        
+    # iterate to obtain weights depending on n_points input variable    
+    weights = [np.array([w, 1 - w]) for w in np.linspace(0, 1, n_points)]
+
+    # calculate returns for every weight
+    returns = [
+        calculate_portfolio_return(
+            w, 
+            returns_data
+        ) for w in weights
+    ]
+    
+    # calculate volatility for every weight
+    volatility = [
+            calculate_portfolio_vol(
+                w, 
+                cov_matrix
+            ) for w in weights
+    ]
+
+    # construct dataframe for efficient frontier
+    efficient_frontier_df = pd.DataFrame(
+        {
+            "returns": returns,
+            "volatility": volatility
+        }
+    )
+
+    return efficient_frontier_df.plot.line(
+        x = "volatility",
+        y = "returns", 
+        style = ".-"
+    )
