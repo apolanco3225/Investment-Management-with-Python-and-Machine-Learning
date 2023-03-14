@@ -48,6 +48,28 @@ def get_hfi_returns():
     hfi_returns.index = hfi_returns.index.to_period("M")
     return hfi_returns
 
+def get_ind_returns():
+    """
+    Load and format the Ken French 30 Industry Portfolio
+    Value Weighted Monthly Returns
+    """
+    industry_returns = pd.read_csv(
+        "../data/ind30_m_vw_rets.csv", 
+        index_col=0, 
+        parse_dates = True
+    ) 
+    
+    industry_returns = industry_returns / 100
+    industry_returns.index = pd.to_datetime(
+        industry_returns.index, 
+        format="%Y%m"
+    ).to_period("M")
+    
+    industry_returns.columns = industry_returns.columns.str.strip()
+    industry_returns.columns = industry_returns.columns.str.lower()
+    return industry_returns
+    
+    
 
 # risk functions
 def calculate_drawdown(input_series: pd.Series):
@@ -173,3 +195,40 @@ def calculate_cvar_historic(returns_data, level=5):
     
     else:
         raise TypeError ("Expected returns to be a pandas Series or DataFrame")
+
+        
+        
+    
+def calculate_annualize_vol(input_returns, periods_per_year):
+    """
+    Annualizes the vol of a set of returns
+    We should infer the periods per year
+    """
+    return input_returns.std()*(periods_per_year**0.5)
+
+
+def calculate_annualize_rets(input_returns, periods_per_year):
+    """
+    Annualize a set of returns
+    We should infer the periods per year
+    """
+    compounded_growth = (1 + input_returns).prod()
+    n_periods = len(input_returns)
+    return compounded_growth ** (periods_per_year / n_periods) - 1
+
+
+def calculate_sharpe_ratio(
+    input_returns, 
+    risk_free_rate, 
+    periods_per_year
+    ):
+    """
+    Computes the annualized sharpe ratio of a set of returns
+    """
+    # convert the annual risk free rate to per period
+    rf_per_period = (1 + risk_free_rate) ** (1 / periods_per_year) - 1
+    excess_ret = input_returns - rf_per_period
+    ann_ex_ret = calculate_annualize_rets(excess_ret, periods_per_year)
+    ann_vol = calculate_annualize_vol(input_returns, periods_per_year)
+    return ann_ex_ret / ann_vol
+    
