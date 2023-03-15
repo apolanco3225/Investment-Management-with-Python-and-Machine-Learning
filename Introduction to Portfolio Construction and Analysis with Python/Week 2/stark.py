@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import scipy.stats
 from scipy.stats import norm
-
+from scipy.optimize import minimize
 
 # data convinience functions
 def get_ffme_returns():
@@ -286,3 +286,96 @@ def plot_ef2(n_points, returns_data, cov_matrix):
         y = "returns", 
         style = ".-"
     )
+
+
+def minimize_vol(target_return, returns_data, cov_matrix):
+    """
+    target_return -> W
+    """
+    num_assets = len(returns_data)
+    unit_weight = 1 / num_assets
+    init_guess = np.repeat(unit_weight, num_assets)
+    
+    bounds = ((0.0, 1.0),) * num_assets
+    
+    return_is_target = {
+        "type": "eq",
+        "args": (returns_data,),
+        "fun": lambda weights, returns_data: 
+            target_return - calculate_portfolio_return(
+                weights, 
+                returns_data
+            )
+    }
+    weights_sum_to_one = {
+        "type": "eq",
+        "fun": lambda weights: np.sum(weights) - 1
+    }
+    
+    results = minimize(
+        calculate_portfolio_vol, 
+        init_guess, 
+        args = (cov_matrix,),
+        method = "SLSQP",
+        options = {"disp": False},
+        constraints = (return_is_target, weights_sum_to_one), 
+        bounds = bounds
+    )
+    
+    return results.x
+
+def optimal_weights(n_points, returns_data, cov_matrix):
+    """
+    -> Generates a list of weights to run the optimizer
+    on to minimize the vol.
+    """
+    target_returns = np.linspace(
+        returns_data.min(), 
+        returns_data.max(), 
+        n_points
+    )
+    
+    weights = [
+        minimize_vol(target_return, returns_data, cov_matrix)
+        for target_return in target_returns
+    ]
+    return weights
+    
+    
+def plot_ef(n_points, returns_data, cov_matrix):
+    """
+    Plots the N-assets efficient frontier
+    """
+    # iterate to obtain weights depending on n_points input variable    
+    weights = optimal_weights(n_points, returns_data, cov_matrix)
+
+    # calculate returns for every weight
+    returns = [
+        calculate_portfolio_return(
+            w, 
+            returns_data
+        ) for w in weights
+    ]
+    
+    # calculate volatility for every weight
+    volatility = [
+            calculate_portfolio_vol(
+                w, 
+                cov_matrix
+            ) for w in weights
+    ]
+
+    # construct dataframe for efficient frontier
+    efficient_frontier_df = pd.DataFrame(
+        {
+            "returns": returns,
+            "volatility": volatility
+        }
+    )
+
+    return efficient_frontier_df.plot.line(
+        x = "volatility",
+        y = "returns", 
+        style = ".-"
+    )
+
