@@ -342,7 +342,7 @@ def optimal_weights(n_points, returns_data, cov_matrix):
     return weights
     
     
-def plot_ef(n_points, returns_data, cov_matrix):
+def plot_ef(n_points, returns_data, cov_matrix, show_cml=False, risk_free_rate=0):
     """
     Plots the N-assets efficient frontier
     """
@@ -373,9 +373,87 @@ def plot_ef(n_points, returns_data, cov_matrix):
         }
     )
 
-    return efficient_frontier_df.plot.line(
+    ax = efficient_frontier_df.plot.line(
         x = "volatility",
         y = "returns", 
         style = ".-"
     )
+
+    if show_cml:
+        
+        ax.set_xlim(left=0)
+
+        weights_msr = msr(
+            risk_free_rate, 
+            returns_data, 
+            cov_matrix
+        )
+
+        returns_msr = calculate_portfolio_return(
+            weights_msr, 
+            returns_data
+        )
+
+        volatility_msr = calculate_portfolio_vol(
+            weights_msr, 
+            cov_matrix
+        )
+
+        # add capital market line
+        cml_x = [0, volatility_msr]
+        cml_y = [risk_free_rate, returns_msr]
+        ax.plot(
+            cml_x, 
+            cml_y, 
+            color ="green", 
+            marker ="o", 
+            linestyle ="dashed", 
+            markersize =12,
+            linewidth = 2
+        )
+
+
+    return ax
+
+
+
+def msr(risk_free_rate, returns_data, cov_matrix):
+    """
+    Maximum Sharpe Ratio
+    Risk Free Rate + ER + COV -> W
+    """
+    num_assets = len(returns_data)
+    unit_weight = 1 / num_assets
+    init_guess = np.repeat(unit_weight, num_assets)
+    
+    bounds = ((0.0, 1.0),) * num_assets
+    
+    weights_sum_to_one = {
+        "type": "eq",
+        "fun": lambda weights: np.sum(weights) - 1
+    }
+    
+    def neg_sharpe_ratio(weights, risk_free_rate, returns_data, cov_matrix):
+        """
+        Returns the negative of the sharpe ratio, given the weights
+        """
+        returns = calculate_portfolio_return(weights, returns_data)
+        volatility = calculate_portfolio_vol(weights, cov_matrix)
+        
+        return -(returns - risk_free_rate) / volatility
+    
+    results = minimize(
+        neg_sharpe_ratio, 
+        init_guess, 
+        args = (
+            risk_free_rate, 
+            returns_data,
+            cov_matrix,),
+        method = "SLSQP",
+        options = {"disp": False},
+        constraints = (weights_sum_to_one), 
+        bounds = bounds
+    )
+    
+    return results.x
 
