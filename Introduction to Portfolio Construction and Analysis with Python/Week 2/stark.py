@@ -342,7 +342,17 @@ def optimal_weights(n_points, returns_data, cov_matrix):
     return weights
     
     
-def plot_ef(n_points, returns_data, cov_matrix, show_cml=False, risk_free_rate=0):
+    
+def calculate_gmv(cov_matrix):
+    """
+    Returns weights of the global minimal vol portfolio
+    given covariance matrix.
+    """
+    num_assets = len(cov_matrix)
+    return calculate_maximum_sharpe_ratio(0, np.repeat(1, num_assets), cov_matrix)
+    
+    
+def plot_ef(n_points, returns_data, cov_matrix, show_cml=False, risk_free_rate=0, show_ew=False, show_gmv=False):
     """
     Plots the N-assets efficient frontier
     """
@@ -378,12 +388,41 @@ def plot_ef(n_points, returns_data, cov_matrix, show_cml=False, risk_free_rate=0
         y = "returns", 
         style = ".-"
     )
+    
+    if show_ew:
+        # equally weighted portfolio
+        num_assets = len(returns_data)
+        weights_ew = np.repeat(1 / num_assets, num_assets)
+        returns_ew = calculate_portfolio_return(weights_ew, returns_data)
+        volatility_ew = calculate_portfolio_vol(weights_ew, cov_matrix)
+        # display EW porfolio
+        ax.plot(
+            [volatility_ew], 
+            [returns_ew], 
+            color="goldenrod", 
+            marker="o", 
+            markersize=12
+        )
+        
+    if show_gmv:
+        # global minimum variance portfolio
+        weights_gmv = calculate_gmv(cov_matrix)
+        returns_gmv = calculate_portfolio_return(weights_gmv, returns_data)
+        volatility_gmv = calculate_portfolio_vol(weights_gmv, cov_matrix)
+        # display GMV porfolio
+        ax.plot(
+            [volatility_gmv], 
+            [returns_gmv], 
+            color="midnightblue", 
+            marker="o", 
+            markersize=12
+        )
 
     if show_cml:
         
         ax.set_xlim(left=0)
 
-        weights_msr = msr(
+        weights_msr = calculate_maximum_sharpe_ratio(
             risk_free_rate, 
             returns_data, 
             cov_matrix
@@ -417,7 +456,7 @@ def plot_ef(n_points, returns_data, cov_matrix, show_cml=False, risk_free_rate=0
 
 
 
-def msr(risk_free_rate, returns_data, cov_matrix):
+def calculate_maximum_sharpe_ratio(risk_free_rate, returns_data, cov_matrix):
     """
     Maximum Sharpe Ratio
     Risk Free Rate + ER + COV -> W
