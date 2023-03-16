@@ -71,6 +71,8 @@ def get_ind_returns():
     
     
 
+
+    
 # risk functions
 def calculate_drawdown(input_series: pd.Series):
     """

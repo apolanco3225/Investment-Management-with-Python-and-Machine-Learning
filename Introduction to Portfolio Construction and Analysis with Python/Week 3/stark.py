@@ -69,6 +69,47 @@ def get_ind_returns():
     industry_returns.columns = industry_returns.columns.str.lower()
     return industry_returns
     
+def get_ind_size():
+    """
+    Load and format the Ken French 30 Industry Portfolio Size
+    """
+    industry_returns = pd.read_csv(
+        "../data/ind30_m_size.csv", 
+        index_col=0, 
+        parse_dates = True
+    ) 
+    
+    industry_returns.index = pd.to_datetime(
+        industry_returns.index, 
+        format="%Y%m"
+    ).to_period("M")
+    
+    industry_returns.columns = industry_returns.columns.str.strip()
+    industry_returns.columns = industry_returns.columns.str.lower()
+    return industry_returns
+   
+    
+def get_ind_nfirms():
+    """
+    Load and format the Ken French 30 Industry Portfolio 
+    number of firms.
+    """
+    industry_returns = pd.read_csv(
+        "../data/ind30_m_nfirms.csv", 
+        index_col=0, 
+        parse_dates = True
+    ) 
+    
+    industry_returns.index = pd.to_datetime(
+        industry_returns.index, 
+        format="%Y%m"
+    ).to_period("M")
+    
+    industry_returns.columns = industry_returns.columns.str.strip()
+    industry_returns.columns = industry_returns.columns.str.lower()
+    return industry_returns
+   
+    
     
 
 # risk functions
