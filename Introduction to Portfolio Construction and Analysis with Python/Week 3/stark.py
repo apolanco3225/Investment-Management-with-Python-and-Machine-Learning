@@ -4,6 +4,8 @@ import scipy.stats
 from scipy.stats import norm
 from scipy.optimize import minimize
 
+from tqdm import tqdm
+
 # data convinience functions
 def get_ffme_returns():
     """
@@ -228,7 +230,7 @@ def calculate_cvar_historic(returns_data, level=5):
     Computes the conditional var of a Series or a DataFrame
     """
     if isinstance(returns_data, pd.Series):
-        is_beyond = r <= calculate_var_historic(returns_data, level=level)
+        is_beyond = returns_data <= calculate_var_historic(returns_data, level=level)
         return -returns_data[is_beyond].mean()
     
     elif isinstance(returns_data, pd.DataFrame):
@@ -537,3 +539,101 @@ def calculate_maximum_sharpe_ratio(risk_free_rate, returns_data, cov_matrix):
     
     return results.x
 
+# execute
+def run_cppi(risky_returns, safe_returns=None, m=3, start=1_000, floor=0.8, risk_free_rate=0.03, drawdown_constraint=None):
+    """
+    Run a backtest of the CPPI strategy, given a set of returns for 
+    the history asset. 
+    Returns a dictionary containing: Asset value history, risk budget history,
+    risky weight history.
+    """
+    dates = risky_returns.index
+    n_steps = len(dates)
+    account_value = start
+    floor_value = start * floor
+    peak = start
+    
+    if isinstance(risky_returns, pd.Series):
+        risky_returns = pd.DataFrame(risky_returns, columns=["R"])
+        
+    if safe_returns == None:
+        safe_returns = pd.DataFrame().reindex_like(risky_returns)
+        safe_returns.values[:] = risk_free_rate / 12
+        
+        
+    account_history = pd.DataFrame().reindex_like(risky_returns)
+    cushion_history = pd.DataFrame().reindex_like(risky_returns)
+    risky_w_history = pd.DataFrame().reindex_like(risky_returns)
+
+    for step in tqdm(range(n_steps)):
+        if drawdown_constraint is not None:
+            peak = np.maximum(peak, account_value)
+            floor_value = peak * (1 - drawdown_constraint)
+        cushion = (account_value - floor_value) / account_value
+        risky_weight = m * cushion
+        risky_weight = np.minimum(risky_weight, 1)
+        risky_weight = np.maximum(risky_weight, 0)
+
+        safe_weight = 1 - risky_weight
+
+        risky_allocation = account_value * risky_weight
+        safe_allocation = account_value * safe_weight
+
+        # update account value for this time step
+        account_value = (risky_allocation * (risky_returns.iloc[step] + 1)) + \
+            (safe_allocation * (safe_returns.iloc[step] + 1))
+
+        # save values  
+        cushion_history.iloc[step] = cushion
+        risky_w_history.iloc[step] = risky_weight
+        account_history.iloc[step] = account_value
+        
+    risky_wealth = start * (1 + risky_returns).cumprod()
+    
+    backtest_dict = {
+        "wealth": account_history, 
+        "risky_wealth": risky_wealth, 
+        "risky_budget": cushion_history, 
+        "risk_allocation": risky_w_history, 
+        "m": m, 
+        "start": start, 
+        "floor": floor, 
+        "risky_return": risky_returns, 
+        "safe_returns": safe_returns
+    }
+    return backtest_dict
+
+
+def summary_stats(returns_data, risk_free_rate=0.03):
+    """
+    Return a DataFrame that contains aggregated summary stats
+    for the returns in the columns of returns_data
+    """
+    annual_returns = returns_data.aggregate(calculate_annualize_rets, periods_per_year = 12)
+    annual_volatility = returns_data.aggregate(calculate_annualize_vol, periods_per_year = 12)
+    annual_sharp_ratio = returns_data.aggregate(
+        calculate_sharpe_ratio, 
+        risk_free_rate = risk_free_rate, 
+        periods_per_year = 12
+    )
+    drawdown = returns_data.aggregate(
+        lambda returns_data: 
+            calculate_drawdown(returns_data).drawdown.min()
+    )
+    skewness = returns_data.aggregate(calculate_skewness)
+    kurtosis = returns_data.aggregate(calculate_kurtosis)
+    cf_var5 = returns_data.aggregate(calculate_var_gaussian, modified=True)
+    hist_cvar5 = returns_data.aggregate(calculate_cvar_historic)
+    summary_dict = {
+        "annualized_return": annual_returns, 
+        "annualized_volatility":annual_volatility, 
+        "skewness": skewness,
+        "kurtosis": kurtosis, 
+        "cornish_fisher_var": cf_var5, 
+        "historic_var": hist_cvar5, 
+        "sharpe_ratio": annual_sharp_ratio, 
+        "drawdown": drawdown
+    }
+    
+    summary_df = pd.DataFrame(summary_dict)
+    return summary_df
