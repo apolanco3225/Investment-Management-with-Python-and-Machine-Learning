@@ -539,6 +539,44 @@ def calculate_maximum_sharpe_ratio(risk_free_rate, returns_data, cov_matrix):
     
     return results.x
 
+
+
+def calculate_discount(time, interest_rate):
+    """
+    Compute the price of a pure discount bond that pays a dollar at a given time 
+    with some interest rate.
+    """
+    return 1 / (1 + interest_rate) ** time
+
+
+
+def calculate_present_value(liabilities, interest_rate):
+    """
+    Computes the present value of a sequence of liabilities
+    input: 
+        liabilities: indexed by the time, and the values are
+        the amount of each liability.
+        interest_rate: interest rate.
+    returns:
+        Present value of the sequence.
+    """
+    dates = liabilities.index
+    liabilities_discount = calculate_discount(
+        time=dates, 
+        interest_rate=interest_rate
+    )
+    return (liabilities_discount*liabilities).sum()
+
+
+
+def calculate_funding_ratio(assets, liabilities, interest_rate):
+    """
+    Computes the funding ratio of some assets given liabilities
+    and interest rate.
+    """
+    return assets / calculate_present_value(liabilities=liabilities, interest_rate=interest_rate)
+
+
 # execute
 def run_cppi(risky_returns, safe_returns=None, m=3, start=1_000, floor=0.8, risk_free_rate=0.03, drawdown_constraint=None):
     """
