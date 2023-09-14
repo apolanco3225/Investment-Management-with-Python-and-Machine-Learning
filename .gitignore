@@ -4,3 +4,5 @@
 .pyc
 *.pyc
 settings.json
+.ipynb_checkpoints
+__pycache__
