@@ -21,3 +21,19 @@ def fama_french_market_equity():
         format="%Y%m"
     ).to_period("M")
     return fama_french_data
+
+
+def hedge_fund_index_returns():
+    """
+    Load and format EDHEC Hedge Fund Index Returns
+    """
+    hf_index_returns = pd.read_csv(
+        "../data/edhec-hedgefundindices.csv",
+        header = 0, 
+        index_col = 0, 
+        parse_dates =  True
+    )
+
+    hf_index_returns = hf_index_returns.divide(100)
+    hf_index_returns.index = hf_index_returns.index.to_period("M")
+    return hf_index_returns
